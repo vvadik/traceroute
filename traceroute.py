@@ -1,14 +1,15 @@
 import argparse
 import socket
-import socket
-import re
+from ipwhois import IPWhois
 from time import time
-from scapy.all import sr1, whois
+from scapy.all import sr1
 from scapy.layers.inet import IP, UDP, TCP, ICMP
+from scapy.layers.inet6 import IPv6, ICMPv6EchoRequest
 
 
 class Traceroute:
     def __init__(self, host, timeout, port, TTL, verb, msg_type):
+        self.IPv6 = ':' in host
         self.host = host
         self.timeout = timeout
         self.port = port
@@ -16,51 +17,44 @@ class Traceroute:
         self.verb = verb
         types = {'tcp': self.tcp, 'udp': self.udp, 'icmp': self.icmp}
         self.execute = types[msg_type]
-        self.AS = re.compile(r'AS\d\d\d\d\d')
 
     def run(self):
+        asn = ''
         for ttl in range(1, self.TTL):
             package = self.execute(ttl)
             start_ping = time()
             reply = sr1(package, verbose=0, retry=-3, timeout=self.timeout)
             end_ping = round((time() - start_ping) * 1000)
-            self.define_asn(reply.src)
-            # AS = self.AS.findall(whois(reply.src).decode())
-            # print(AS)
+            if self.verb:
+                if ttl == 1:
+                    continue
+                asn = IPWhois(reply.src).lookup_whois()['asn']
             if reply is None:
                 print(ttl, '*', 'timeout')
                 break
             elif reply.haslayer(TCP)\
                     or (reply.type == 3 and reply.code == 3)\
-                    or (reply.type == 0 and reply.code == 0):
-                print("Done!", reply.src, end_ping, 'ms')
+                    or (reply.type == 0 and reply.code == 0)\
+                    or (reply.type == 1 and reply.code == 4)\
+                    or (reply.type == 129 and reply.code == 0):
+                print("Done!", reply.src, end_ping, 'ms', asn)
                 break
             else:
-                print(ttl, reply.src, end_ping, 'ms')
-        self.s.close()
-
-    def define_asn(self, ip):
-        self.s = socket.socket()
-        self.s.settimeout(self.timeout)
-        # self.s.connect(('whois.apnic.net', 43))
-        self.s.connect(('193.0.6.135', 43))
-        req = f'-V Md5.2 {ip}\n'
-        self.s.recv(16384)
-        self.s.send(req.encode())
-        self.s.recv(16384)
-        data = self.s.recv(16384)
-        print(data)
-        AS = self.AS.findall(data.decode())
-        print(AS)
-        self.s.close()
+                print(ttl, reply.src, end_ping, 'ms', asn)
 
     def tcp(self, i):
+        if self.IPv6:
+            return IPv6(dst=self.host, hlim=i) / TCP(dport=self.port)
         return IP(dst=self.host, ttl=i) / TCP(dport=self.port)
 
     def udp(self, i):
+        if self.IPv6:
+            return IPv6(dst=self.host, hlim=i) / UDP(dport=self.port)
         return IP(dst=self.host, ttl=i) / UDP(dport=self.port)
 
     def icmp(self, i):
+        if self.IPv6:
+            return IPv6(dst=self.host, hlim=i) / ICMPv6EchoRequest()
         return IP(dst=self.host, ttl=i) / ICMP(type=8)
 
 
@@ -79,7 +73,11 @@ if __name__ == '__main__':
     parser.add_argument('host', type=str)
     parser.add_argument(dest='msg_type', choices=['tcp', 'udp', 'icmp'])
     args = parser.parse_args()
-    traceroute = Traceroute(socket.gethostbyname(args.host),
+    if ':' in args.host:
+        host = args.host
+    else:
+        host = socket.gethostbyname(args.host)
+    traceroute = Traceroute(host,
                             args.timeout,
                             args.port,
                             args.TTL,
