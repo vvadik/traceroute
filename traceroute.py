@@ -1,6 +1,6 @@
 import argparse
 import socket
-from ipwhois import IPWhois
+from ipwhois import IPWhois, exceptions
 from time import time
 from scapy.all import sr1
 from scapy.layers.inet import IP, UDP, TCP, ICMP
@@ -28,7 +28,10 @@ class Traceroute:
             if self.verb:
                 if ttl == 1:
                     continue
-                asn = IPWhois(reply.src).lookup_whois()['asn']
+                try:
+                    asn = IPWhois(reply.src).lookup_whois()['asn']
+                except exceptions.IPDefinedError as e:
+                    asn = 'Not found'
             if reply is None:
                 print(ttl, '*', 'timeout')
                 break
@@ -64,12 +67,10 @@ if __name__ == '__main__':
                         default=2)
     parser.add_argument('-p', dest='port', type=int, default=33434,
                         required=False)
-    parser.add_argument('-n', dest='TTL', type=int, default=30,
+    parser.add_argument('-n', dest='TTL', type=int, default=64,
                         required=False)
-
     parser.add_argument('-v', dest='verb', default=False,
-                        action='store_true',
-                        required=False)
+                        action='store_true', required=False)
     parser.add_argument('host', type=str)
     parser.add_argument(dest='msg_type', choices=['tcp', 'udp', 'icmp'])
     args = parser.parse_args()
