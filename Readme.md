@@ -4,11 +4,11 @@
 - Утилита позволяет отправлять пакеты по ICMP, TCP или UDP
 - Есть поддержка IPv6
 
-## Запуск
+### Запуск
 ```sh
 $ python3 traceroute.py [OPTIONS] IP_ADDRESS {tcp|udp|icmp}
 ```
-## [OPTIONS]
+### [OPTIONS]
 ```sh
 * `-t` — таймаут ожидания ответа (по умолчанию 2с)
 * '-p' — порт (для tcp или udp)
@@ -16,7 +16,7 @@ $ python3 traceroute.py [OPTIONS] IP_ADDRESS {tcp|udp|icmp}
 * `-v` — вывод номера автономной системы для каждого ip-адреса
 ```
 
-## Пример запуска
+### Пример запуска
 ```sh
 $ python3 traceroute.py -p 53 1.1.1.1 tcp
 ```
