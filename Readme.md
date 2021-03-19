@@ -1,6 +1,6 @@
 # traceroute
 
-## Features
+### Features
 - Утилита позволяет отправлять пакеты по ICMP, TCP или UDP
 - Есть поддержка IPv6
 
